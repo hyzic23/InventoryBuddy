@@ -1,7 +1,7 @@
-using InventoryBuddy.Api.Data;
+using InventoryBuddy.Api.Dtos;
 using InventoryBuddy.Api.Models;
+using InventoryBuddy.Api.Services;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 
 namespace InventoryBuddy.Api.Controllers;
 
@@ -9,37 +9,37 @@ namespace InventoryBuddy.Api.Controllers;
 [Route("api/[controller]")] 
 public class ProductsController : ControllerBase
 {
-    private readonly AppDbContext _dbContext;
+    private readonly IProductService _productService;
 
-    public ProductsController(AppDbContext dbContext)
+    public ProductsController(IProductService productService)
     {
-        _dbContext = dbContext;
+        _productService = productService;
     }
-    
+
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<Product>>> GetProducts()
+    public async Task<ActionResult<IEnumerable<Product>>> GetProducts([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
     {
-        return await _dbContext.Products.ToListAsync();
+        var products = await _productService.GetProductsAsync(pageNumber, pageSize);
+        return Ok(products);
     }
 
     [HttpPost]
-    public async Task<ActionResult<Product>> AddProduct(Product product)
+    public async Task<ActionResult<Product>> CreateProduct(ProductDto productDto)
     {
-        await _dbContext.Products.AddAsync(product);
-        await _dbContext.SaveChangesAsync();
-        return CreatedAtAction(nameof(GetProducts), new { id = product.Id}, product);
+        if (!ModelState.IsValid) return BadRequest(ModelState);
+        var product = await _productService.CreateProductAsync(productDto);
+        return CreatedAtAction(nameof(GetProducts), new { id = product.Id }, product);
     }
-    
+
     [HttpPost("{id}/purchase")]
-    public async Task<IActionResult> PurchaseProduct(int id, int quantity)
+    public async Task<IActionResult> PurchaseProduct(int id, PurchaseDto purchaseDto)
     {
-        var product = await _dbContext.Products.FindAsync(id);
-        if (product == null) return NotFound();
+        if (!ModelState.IsValid) return BadRequest(ModelState);
         
-        product.StockQty -= quantity; 
+        var success = await _productService.PurchaseProductAsync(id, purchaseDto.Quantity);
+        if (!success) return BadRequest("Insufficient stock or concurrency conflict.");
         
-        await _dbContext.SaveChangesAsync();
-        return Ok(product);
+        return Ok("Purchase successful.");
     }
     
 }

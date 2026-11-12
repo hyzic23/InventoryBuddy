@@ -33,7 +33,7 @@ public class ProductService : IProductService
         {
             Name = productDto.Name,
             Price = productDto.Price,
-            StockQuantity = productDto.StockQuantity
+            StockQty = productDto.StockQuantity
         };
 
         _context.Products.Add(product);
